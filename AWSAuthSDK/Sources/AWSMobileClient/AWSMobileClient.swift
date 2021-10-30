@@ -109,6 +109,7 @@ final public class AWSMobileClient: _AWSMobileClient {
     let CustomRoleArnKey: String = "customRoleArn"
     let FederationDisabledKey: String = "federationDisabled"
     let HostedUIOptionsScopesKey: String = "hostedUIOptionsScopes"
+    let configurationKey: String = "configurationKey"
     
     /// The internal Cognito Credentials Provider
     var internalCredentialsProvider: AWSCognitoCredentialsProvider?
@@ -216,6 +217,35 @@ final public class AWSMobileClient: _AWSMobileClient {
         }
     }
     
+    /// Check if there was a previous configuration with different values for user pool and identity pool. If we find that there is a previous configuration
+    /// and the configuration are different from the present, clear all keychain values.
+    ///
+    func cleanupPreviousInstall() {
+        let userpoolInfo = self.awsInfo.rootInfoDictionary["CognitoUserPool"] as? [String: [String: Any]]
+        let userpoolDefault: [String: Any]? = userpoolInfo?["Default"]
+        let userPoolClientId = userpoolDefault?["AppClientId"] ?? ""
+        let userPooldId = userpoolDefault?["PoolId"] ?? ""
+        
+        let identityPoolInfo = self.awsInfo.rootInfoDictionary["CredentialsProvider"] as? [String: [String: Any]]
+        let identityPoolDefault: [String: Any]? = identityPoolInfo?["CognitoIdentity"]?["Default"] as? [String: Any]
+        let identityPoolId = identityPoolDefault?["PoolId"] ?? ""
+        
+        let configValue = "\(userPooldId)-\(userPoolClientId)-\(identityPoolId)"
+        if let existingConfigValue = self.keychain.string(forKey: configurationKey),
+           !existingConfigValue.isEmpty,
+           configValue != existingConfigValue {
+            
+            let infoObject = AWSInfo.default().defaultServiceInfo("IdentityManager")
+            if let credentialsProvider = infoObject?.cognitoCredentialsProvider {
+                credentialsProvider.clearKeychain()
+            }
+            self.keychain.removeAllItems()
+            self.clearKeychain()
+            self.signOut()
+        }
+        self.keychain.setString(configValue, forKey: configurationKey)
+    }
+    
     
     /// Initializes `AWSMobileClient` and determines the `UserState` for current user using cache.
     ///
@@ -233,7 +263,7 @@ final public class AWSMobileClient: _AWSMobileClient {
                 completionHandler(self.currentUserState, nil)
                 return
             }
-            
+            cleanupPreviousInstall()
             self.loadLoginsMapFromKeychain()
             // Updated logic to determine federation provider from keychain.
             self.loadFederationProviderMetadataFromKeychain()
