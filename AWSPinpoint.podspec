@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => 'https://github.com/aws-amplify/aws-sdk-ios.git',
                      :tag => s.version}
   s.requires_arc = true
-  s.dependency 'AWSCore', '2.26.6'
+  s.dependency 'AWSCore', '2.26.5'
   s.source_files = 'AWSPinpoint/*.{h,m}', 'AWSPinpoint/**/*.{h,m}'
   s.private_header_files = 'AWSPinpoint/Internal/*.h'
 end
